@@ -1,10 +1,8 @@
 """
 Core Configuration – loads from environment variables via pydantic-settings.
 """
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
-
-import os
 
 
 class Settings(BaseSettings):
@@ -15,7 +13,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Security
-    SECRET_KEY: str = "REMOVED_SECRET_KEY"
+    SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     ALLOWED_ORIGINS: List[str] = [
@@ -25,16 +23,16 @@ class Settings(BaseSettings):
     ]
 
     # Database
-    DATABASE_URL: str = "postgresql://wakili_db_user:REMOVED_DB_PASS@dpg-d7cumfbeo5us7380nk4g-a.oregon-postgres.render.com/wakili_db"
+    DATABASE_URL: str
 
-    # ChromaDB
     # ChromaDB
     CHROMA_PERSIST_DIR: str = "/app/chroma_data"
     CHROMA_COLLECTION_NAME: str = "wakili_documents"
     KB_COLLECTION_NAME: str = "wakili_knowledge_base"
 
     # Redis
-    REDIS_URL: str = "rediss://default:REMOVED_REDIS_PASS@trusting-ocelot-73157.upstash.io:6379"
+    REDIS_URL: str
+
     REDIS_TTL_SECONDS: int = 3600
 
     # Embedding
@@ -42,7 +40,7 @@ class Settings(BaseSettings):
     EMBEDDING_CACHE_DIR: str = "/app/.model_cache"
 
     # Groq
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    GROQ_API_KEY: str
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
     # LLM generation
@@ -54,15 +52,15 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 100
     TOP_K_RETRIEVAL: int = 5
     MAX_CONTEXT_TOKENS: int = 2048
-    CONFIDENCE_THRESHOLD: float = 0.20   # below this → use knowledge base
+    CONFIDENCE_THRESHOLD: float = 0.20
 
     # Conversation memory
-    MAX_HISTORY_TURNS: int = 10   # how many past Q+A pairs to send to Groq
+    MAX_HISTORY_TURNS: int = 10
 
     # File Upload
     UPLOAD_DIR: str = "/app/uploads"
     MAX_FILE_SIZE_MB: int = 20
-    ALLOWED_EXTENSIONS: list[str] = ["pdf", "docx", "txt", "png", "jpg", "jpeg"]
+    ALLOWED_EXTENSIONS: List[str] = ["pdf", "docx", "txt", "png", "jpg", "jpeg"]
 
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = 100
@@ -76,10 +74,11 @@ class Settings(BaseSettings):
     def CHROMA_COLLECTION(self) -> str:
         return self.CHROMA_COLLECTION_NAME
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
 settings = Settings()
