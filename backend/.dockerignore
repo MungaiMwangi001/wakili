@@ -1,0 +1,5 @@
+.model_cache
+uploads
+__pycache__
+*.pyc
+.env

@@ -1,0 +1,7 @@
+# Add these lines to your existing .env file
+# (do not replace the whole file — just add these)
+
+GROQ_MODEL=llama-3.3-70b-versatile
+CONFIDENCE_THRESHOLD=0.35
+MAX_HISTORY_TURNS=6
+KB_COLLECTION_NAME=wakili_knowledge_base

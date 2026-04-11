@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #977dff;
+  --accent: #02effe;
+  --background: #f2e6ee;
+  --panel: #aee1f9;
+  --analytics: #9ac5fc;
+  --highlight: #ffccf2;
+}
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f2e6ee; }
+::-webkit-scrollbar-thumb { background: #977dff; border-radius: 3px; }
+
+/* Risk highlight pulse */
+@keyframes risk-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 204, 242, 0.7); }
+  50%       { box-shadow: 0 0 0 8px rgba(255, 204, 242, 0); }
+}
+.risk-pulse { animation: risk-pulse 2s infinite; }

@@ -1,0 +1,32 @@
+# Environment files — never commit these
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env.local
+frontend/.env
+
+# VS Code history plugin — contains copies of old files including secrets
+.history/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.model_cache/
+
+# Node
+node_modules/
+.next/
+.npm/
+
+# Docker volumes
+postgres_data/
+chroma_data/
+redis_data/
+uploads_data/
+
+# OS
+.DS_Store
+Thumbs.db
