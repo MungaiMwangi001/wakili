@@ -1,21 +1,22 @@
 """
 Vector Store Service – ChromaDB wrapper.
-Handles indexing, searching, and deleting document embeddings.
-Also handles the separate knowledge base collection."""
-
-
+Uses PersistentClient (embedded) so no separate ChromaDB server is needed.
+Works on Render free tier and locally.
+"""
+import os
 import chromadb
 import structlog
 from app.core.config import settings
 
 log = structlog.get_logger()
 
+# Persistent storage path — on Render this lives in /app/chroma_data
+CHROMA_PERSIST_DIR = os.environ.get("CHROMA_PERSIST_DIR", "/app/chroma_data")
 
-def _get_client() -> chromadb.HttpClient:
-    return chromadb.HttpClient(
-        host=settings.CHROMA_HOST,
-        port=settings.CHROMA_PORT,
-    )
+
+def _get_client() -> chromadb.PersistentClient:
+    os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
+    return chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
 
 
 def index_document(document_id: int, chunks: list[dict], embeddings: list[list[float]]) -> int:
@@ -99,7 +100,7 @@ def search_knowledge_base(query_embedding: list[float], top_k: int = 5) -> list[
     try:
         collection = client.get_collection(settings.KB_COLLECTION_NAME)
     except Exception:
-        log.warning("Knowledge base collection not found — run scripts/load_knowledge_base.py")
+        log.warning("Knowledge base collection not found")
         return []
 
     count = collection.count()
@@ -136,32 +137,19 @@ def delete_document_collection(document_id: int):
     except Exception as e:
         log.warning("Collection not found on delete", document_id=document_id, error=str(e))
 
-async def delete_document_chunks(doc_id: int) -> None:
-    """
-    Remove all ChromaDB embeddings for a given document_id.
-    Called when a user deletes a document so no orphaned vectors remain.
-    """
-    import structlog
-    log = structlog.get_logger()
-    try:
-        import chromadb
-        from app.core.config import settings
 
-        client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
+async def delete_document_chunks(doc_id: int) -> None:
+    """Remove all ChromaDB embeddings for a given document_id."""
+    try:
+        client = _get_client()
         collection = client.get_or_create_collection(
             name=settings.CHROMA_COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},
         )
-
-        # ChromaDB where filter: delete all chunks whose metadata.document_id matches
         results = collection.get(where={"document_id": doc_id})
         ids_to_delete = results.get("ids", [])
-
         if ids_to_delete:
             collection.delete(ids=ids_to_delete)
             log.info("ChromaDB chunks deleted", doc_id=doc_id, count=len(ids_to_delete))
-        else:
-            log.info("No ChromaDB chunks found for document", doc_id=doc_id)
-
     except Exception as e:
         log.warning("delete_document_chunks failed", doc_id=doc_id, error=str(e))
