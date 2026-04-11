@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     ALLOWED_ORIGINS: List[str] = [
+
         "https://wakili-kohl.vercel.app",
+        "https://wakili-dn2nsm23k-mungaimwangi001s-projects.vercel.app",
         "http://localhost:3000",
         "http://localhost:8080",
     ]
