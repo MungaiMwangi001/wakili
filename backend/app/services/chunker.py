@@ -7,6 +7,7 @@ import re
 import tiktoken
 import structlog
 
+
 log = structlog.get_logger()
 
 _tokenizer = tiktoken.get_encoding("cl100k_base")

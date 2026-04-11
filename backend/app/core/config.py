@@ -4,31 +4,37 @@ Core Configuration – loads from environment variables via pydantic-settings.
 from pydantic_settings import BaseSettings
 from typing import List
 
+import os
+
 
 class Settings(BaseSettings):
     # App
     APP_NAME: str = "Wakili"
     APP_ENV: str = "development"
-    DEBUG: bool = True
+    DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
     # Security
-    SECRET_KEY: str = "CHANGE_ME"
+    SECRET_KEY: str = "REMOVED_SECRET_KEY"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: List[str] = [
+        "https://wakili-kohl.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:8080",
+    ]
 
     # Database
-    DATABASE_URL: str = "postgresql://wakili:wakili_secret@db:5432/wakili"
+    DATABASE_URL: str = "postgresql://wakili_db_user:REMOVED_DB_PASS@dpg-d7cumfbeo5us7380nk4g-a.oregon-postgres.render.com/wakili_db"
 
     # ChromaDB
-    CHROMA_HOST: str = "chromadb"
-    CHROMA_PORT: int = 8000
+    # ChromaDB
+    CHROMA_PERSIST_DIR: str = "/app/chroma_data"
     CHROMA_COLLECTION_NAME: str = "wakili_documents"
     KB_COLLECTION_NAME: str = "wakili_knowledge_base"
 
     # Redis
-    REDIS_URL: str = "redis://redis:6379/0"
+    REDIS_URL: str = "rediss://default:REMOVED_REDIS_PASS@trusting-ocelot-73157.upstash.io:6379"
     REDIS_TTL_SECONDS: int = 3600
 
     # Embedding
@@ -36,7 +42,7 @@ class Settings(BaseSettings):
     EMBEDDING_CACHE_DIR: str = "/app/.model_cache"
 
     # Groq
-    GROQ_API_KEY: str = ""
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
     # LLM generation
@@ -48,10 +54,10 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 100
     TOP_K_RETRIEVAL: int = 5
     MAX_CONTEXT_TOKENS: int = 2048
-    CONFIDENCE_THRESHOLD: float = 0.35   # below this → use knowledge base
+    CONFIDENCE_THRESHOLD: float = 0.20   # below this → use knowledge base
 
     # Conversation memory
-    MAX_HISTORY_TURNS: int = 6   # how many past Q+A pairs to send to Groq
+    MAX_HISTORY_TURNS: int = 10   # how many past Q+A pairs to send to Groq
 
     # File Upload
     UPLOAD_DIR: str = "/app/uploads"
