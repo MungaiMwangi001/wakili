@@ -20,25 +20,45 @@ router = APIRouter()
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    existing = await db.execute(select(User).where(User.email == data.email))
-    if existing.scalar_one_or_none():
+    # Normalize email to lowercase
+    email = data.email.strip().lower()
+    
+    # Check if user exists with normalized email
+    result = await db.execute(select(User).where(User.email == email))
+    existing = result.scalar_one_or_none()
+    
+    if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
     user = User(
-        email=data.email,
-        full_name=data.full_name,
+        email=email,  # Use normalized email
+        full_name=data.full_name.strip(),
         hashed_password=hash_password(data.password),
-        preferred_language=data.preferred_language,
+        preferred_language=data.preferred_language or "en",
     )
+    
     db.add(user)
-    await db.flush()
+    await db.commit()  # IMPORTANT: Commit to save to database
+    await db.refresh(user)  # Refresh to get the generated ID
+    
     return user
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == data.email))
+    # Normalize email to lowercase for lookup
+    email = data.email.strip().lower()
+    
+    # Query with normalized email
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
+
+    # Debug logging (remove after fixing)
+    print(f"Login attempt - Email: '{email}'")
+    print(f"User found: {user is not None}")
+    if user:
+        print(f"Stored email: '{user.email}'")
+        print(f"Password verified: {verify_password(data.password, user.hashed_password)}")
 
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(
