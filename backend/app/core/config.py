@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # ChromaDB
+    # Correct Python syntax inside the Settings class:
     CHROMA_PERSIST_DIR: str = "/app/chroma_data"
     CHROMA_COLLECTION_NAME: str = "wakili_documents"
     KB_COLLECTION_NAME: str = "wakili_knowledge_base"

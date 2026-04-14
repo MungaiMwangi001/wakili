@@ -36,10 +36,10 @@ async def lifespan(app: FastAPI):
 
     # 3. Groq client (just an HTTP client, very cheap)
     get_groq_service()
-    log.info("✅ Groq client ready", model=settings.GROQ_MODEL)
+    log.info(" Groq client ready", model=settings.GROQ_MODEL)
 
-    # ✅ Embedding model is NOT loaded here — lazy on first /ask request
-    log.info("✅ Wakili ready — all systems go (embedding model loads on first request)")
+    #  Embedding model is NOT loaded here — lazy on first /ask request
+    log.info(" Wakili ready — all systems go (embedding model loads on first request)")
     yield
     log.info("Wakili shutting down...")
 
