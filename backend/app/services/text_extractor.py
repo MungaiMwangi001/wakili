@@ -1,6 +1,4 @@
-"""
-Text Extractor – extracts plain text from PDF, DOCX, and TXT files.
-"""
+"""Text Extractor – extracts plain text from PDF, DOCX, and TXT files."""
 import chardet
 import structlog
 import PyPDF2
@@ -26,17 +24,44 @@ def extract_text(file_path: str, file_type: str) -> str:
 
 def _extract_pdf(path: str) -> str:
     try:
+        # Try pdfplumber first (better extraction)
+        import pdfplumber
         text_parts = []
-        with open(path, "rb") as f:
-            reader = PyPDF2.PdfReader(f)
-            for page in reader.pages:
+        with pdfplumber.open(path) as pdf:
+            for page in pdf.pages:
                 text = page.extract_text()
                 if text:
                     text_parts.append(text)
         return "\n".join(text_parts).strip()
+    except ImportError:
+        # Fallback to PyPDF2 if pdfplumber not installed
+        try:
+            text_parts = []
+            with open(path, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        text_parts.append(text)
+            return "\n".join(text_parts).strip()
+        except Exception as e:
+            log.error("PDF extraction failed with PyPDF2", path=path, error=str(e))
+            raise
     except Exception as e:
-        log.error("PDF extraction failed", path=path, error=str(e))
-        raise
+        log.error("PDF extraction failed with pdfplumber", path=path, error=str(e))
+        # Try PyPDF2 as fallback
+        try:
+            text_parts = []
+            with open(path, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        text_parts.append(text)
+            return "\n".join(text_parts).strip()
+        except Exception as e2:
+            log.error("PDF extraction failed with both methods", path=path, error=str(e2))
+            raise
 
 
 def _extract_docx(path: str) -> str:
