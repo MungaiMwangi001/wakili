@@ -1,8 +1,11 @@
 """Document model – stores uploaded legal document metadata."""
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, ForeignKey, JSON, func
+from sqlalchemy import String, Integer, DateTime, ForeignKey, JSON, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
+
+# Add this import for pgvector
+from pgvector.sqlalchemy import Vector
 
 
 class Document(Base):
@@ -15,6 +18,8 @@ class Document(Base):
     file_path: Mapped[str] = mapped_column(String(1000), nullable=False)
     file_type: Mapped[str] = mapped_column(String(10), nullable=False)
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=True)  # Extracted text content
+    embedding: Mapped[Vector] = mapped_column(Vector(384), nullable=True)  # ← ADD THIS LINE
     status: Mapped[str] = mapped_column(String(20), default="processing")
     clause_summaries: Mapped[dict] = mapped_column(JSON, nullable=True)
     risk_flags: Mapped[dict] = mapped_column(JSON, nullable=True)

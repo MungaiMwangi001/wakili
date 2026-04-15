@@ -20,19 +20,13 @@ router = APIRouter()
 
 
 def _chunk_to_dict(c) -> dict:
-    """
-    Convert any chunk representation to a plain dict so Pydantic
-    can validate it cleanly.
-    """
+    """Convert any chunk representation to a plain dict so Pydantic can validate it cleanly."""
     if isinstance(c, dict):
         return c
-    # Pydantic v2
     if hasattr(c, "model_dump"):
         return c.model_dump()
-    # Pydantic v1
     if hasattr(c, "dict"):
         return c.dict()
-    # Dataclass or plain object with __dict__
     if hasattr(c, "__dict__"):
         return c.__dict__
     raise ValueError(f"Cannot convert chunk of type {type(c)} to dict")
@@ -57,7 +51,6 @@ async def ask_question(
     )
     docs = result.scalars().all()
 
-    # Note: We now allow queries even without docs because we have the built-in KB
     doc_ids = [d.id for d in docs]
     doc_titles = {d.id: d.title for d in docs}
 
@@ -69,10 +62,12 @@ async def ask_question(
     # 3. Convert history to plain dicts for the pipeline
     history = [{"role": m.role, "content": m.content} for m in data.conversation_history]
 
-    log.info("Running RAG pipeline", user_id=current_user.id, question=data.question)
+    log.info("Running RAG pipeline", 
+             user_id=current_user.id, 
+             question=data.question[:50],
+             has_docs=len(doc_ids) > 0)
 
-    # 4. Run RAG pipeline
-    # The pipeline internally should now use search_kb from pgvector_service
+    # 4. Run RAG pipeline with db session for better error messages
     try:
         rag_result = await run_rag_query(
             question=data.question,
@@ -81,10 +76,11 @@ async def ask_question(
             language=data.language,
             document_id=data.document_id,
             conversation_history=history,
+            db=db,  # Pass db for document title lookup
         )
     except Exception as e:
-        log.error("RAG pipeline failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Error processing your request")
+        log.error("RAG pipeline failed", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error processing your request: {str(e)}")
 
     # 5. Log query for analytics
     query_record = Query(
@@ -97,10 +93,9 @@ async def ask_question(
         response_time_ms=rag_result["response_time_ms"],
     )
     db.add(query_record)
-    await db.commit() # Using commit() to ensure record is saved
+    await db.commit()
 
     # 6. Format chunks for response
-    # We convert to dict first to avoid Pydantic validation issues
     chunk_dicts = [_chunk_to_dict(c) for c in rag_result["retrieved_chunks"]]
     chunks = [RetrievedChunk(**d) for d in chunk_dicts]
 
@@ -115,3 +110,37 @@ async def ask_question(
         disclaimer=rag_result.get("disclaimer", "This information is for guidance only."),
         response_time_ms=rag_result["response_time_ms"],
     )
+
+
+@router.get("/ask/debug")
+async def debug_rag(
+    question: str = "What are payment obligations?",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Debug endpoint to test RAG retrieval without LLM generation"""
+    from app.services.pgvector_service import search_kb
+    
+    # Test KB search
+    kb_results = await search_kb(question, top_k=3)
+    
+    # Test user document search
+    result = await db.execute(
+        select(Document).where(
+            Document.user_id == current_user.id,
+            Document.status == "ready",
+        )
+    )
+    docs = result.scalars().all()
+    doc_ids = [d.id for d in docs]
+    doc_titles = {d.id: d.title for d in docs}
+    
+    from app.services.rag_pipeline import search_user_documents
+    user_results = await search_user_documents(question, doc_ids, doc_titles, top_k=3)
+    
+    return {
+        "question": question,
+        "kb_results": [{"source": s, "preview": c[:100], "score": sc} for s, c, sc in kb_results],
+        "user_results": [{"source": s, "preview": c[:100], "score": sc} for s, c, sc in user_results],
+        "total_results": len(kb_results) + len(user_results)
+    }

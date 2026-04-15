@@ -43,6 +43,7 @@ def _process_document(doc_id: int, filepath: str, file_ext: str):
             log.warning("Document not found in background task", doc_id=doc_id)
             return
 
+        # Extract text from file
         text = extract_text(filepath, file_ext)
         if not text.strip():
             log.warning("No text extracted from document", doc_id=doc_id)
@@ -50,22 +51,45 @@ def _process_document(doc_id: int, filepath: str, file_ext: str):
             db.commit()
             return
 
+        # STORE THE EXTRACTED CONTENT (this is critical)
+        doc.content = text
+        log.info(f"Extracted {len(text)} characters from document", doc_id=doc_id)
+
+        # GENERATE EMBEDDING FOR PGVECTOR SEARCH (this is what was missing!)
+        from app.services.embedding_service import EmbeddingService
+        embedder = EmbeddingService.get_instance()
+        
+        # Use first 2000 chars for embedding (good balance of context vs performance)
+        content_for_embedding = text[:2000] if len(text) > 2000 else text
+        doc.embedding = embedder.embed_single(content_for_embedding)
+        log.info(f"Generated embedding for document", doc_id=doc_id)
+
+        # Chunk the text for detailed search
         chunks = chunk_text(text, chunk_size=settings.CHUNK_SIZE, overlap=settings.CHUNK_OVERLAP)
         texts = [c["text"] for c in chunks]
-        embeddings = EmbeddingService.get_instance().embed(texts)
-        chunk_count = index_document(doc_id, chunks, embeddings)
-
+        
+        # Generate embeddings for chunks (optional, for more granular search)
+        chunk_embeddings = embedder.embed(texts)
+        
+        # Store chunks in a separate table or JSON field (optional)
+        # For now, we'll just store the count
+        doc.chunk_count = len(chunks)
+        
+        # Analyse with Groq
         groq = get_groq_service()
         context = "\n\n".join(c["text"] for c in chunks[:8])
         analysis = groq.analyse(context, language=doc.detected_language or "en")
 
         doc.clause_summaries = analysis.get("clause_summaries", [])
-        doc.risk_flags       = analysis.get("risk_flags", [])
-        doc.obligations      = analysis.get("obligations", [])
-        doc.chunk_count      = chunk_count
-        doc.status           = "ready"
+        doc.risk_flags = analysis.get("risk_flags", [])
+        doc.obligations = analysis.get("obligations", [])
+        doc.status = "ready"
         db.commit()
-        log.info("Document processed", doc_id=doc_id, chunks=chunk_count)
+        
+        log.info("Document processed successfully with pgvector embedding", 
+                 doc_id=doc_id, 
+                 chunks=len(chunks),
+                 has_embedding=doc.embedding is not None)
 
     except Exception as e:
         log.error("Document processing failed", doc_id=doc_id, error=str(e))
@@ -78,8 +102,6 @@ def _process_document(doc_id: int, filepath: str, file_ext: str):
             pass
     finally:
         db.close()
-
-
 @router.post("/upload", response_model=DocumentOut, status_code=201)
 async def upload_document(
     background_tasks: BackgroundTasks,
